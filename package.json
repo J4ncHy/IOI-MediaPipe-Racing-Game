@@ -1,0 +1,21 @@
+{
+  "name": "racing-game",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "vite"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/face_detection": "^0.4.1646425229",
+    "@mediapipe/holistic": "^0.5.1675471629",
+    "cannon-es": "^0.20.0",
+    "three": "^0.171.0",
+    "vite": "^6.0.3"
+  }
+}
