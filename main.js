@@ -31,7 +31,7 @@ class CarSimulation {
 
         // Load texture
         const textureLoader = new THREE.TextureLoader();
-        const groundTexture = textureLoader.load('assets/checkered-texture.png');
+        const groundTexture = textureLoader.load('assets/checkered-texture.pnga');
         groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
         groundTexture.repeat.set(50, 50);
 
@@ -50,6 +50,30 @@ class CarSimulation {
             'assets/skybox/pz.jpg', 'assets/skybox/nz.jpg'
         ]);
         this.scene.background = skyboxTexture;
+
+        // Store cones for later use
+        this.cones = [];
+
+        // Create cones and add them to the scene and physics world
+        const coneGeometry = new THREE.ConeGeometry(0.5, 2, 32);
+        const coneMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+
+        for (let i = 0; i < 12; i++) {
+            // Three.js mesh
+            const coneMesh = new THREE.Mesh(coneGeometry, coneMaterial);
+            coneMesh.position.set(0, 1, -20 +(i * -20)); // Adjust positions as needed
+            this.scene.add(coneMesh);
+        
+            // Cannon.js body (approximated with a cylinder)
+            const coneShape = new CANNON.Cylinder(0.5, 0.5, 2, 32);
+            const coneBody = new CANNON.Body({ mass: 0 }); // Static body
+            coneBody.addShape(coneShape);
+            coneBody.position.set(coneMesh.position.x, coneMesh.position.y, coneMesh.position.z);
+            this.world.addBody(coneBody);
+        
+            // Store mesh and body
+            this.cones.push({ mesh: coneMesh, body: coneBody });
+        }
 
         // Create car
         this._createCar();
@@ -113,7 +137,7 @@ class CarSimulation {
 
         // Wheels
         const wheelOptions = {
-            radius: 0.5,
+            radius: 0.3,
             directionLocal: new CANNON.Vec3(0, -1, 0),
             suspensionStiffness: 30,
             suspensionRestLength: 0.3,
@@ -145,13 +169,13 @@ class CarSimulation {
 
         // Three.js chassis
         const chassisGeometry = new THREE.BoxGeometry(2, 1, 4);
-        const chassisMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        const chassisMaterial = new THREE.MeshStandardMaterial({ color: 0x00FFFF });
         this.chassisMesh = new THREE.Mesh(chassisGeometry, chassisMaterial);
         this.scene.add(this.chassisMesh);
 
         // Three.js wheels
         const wheelGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.4, 32);
-        const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+        const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
         this.wheelMeshes = [];
         for (let i = 0; i < this.vehicle.wheelInfos.length; i++) {
             const wheelMesh = new THREE.Mesh(wheelGeometry, wheelMaterial);
@@ -202,8 +226,6 @@ class CarSimulation {
             const centerX = boundingBox.xCenter / this.videoElement.videoWidth;
 
             this.facePosition = 5 * boundingBox.xCenter - 2.5;
-
-
 
             // Log the coordinates of the face detection
             console.log(`Face detected at: xCenter=${boundingBox.xCenter}, yCenter=${boundingBox.yCenter}`);
