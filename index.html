@@ -5,8 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Racing Game</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        #arrows {
+            position: absolute;
+            bottom: 200px;
+            right: 40px;
+            transform: translate(-50%, -50%);
+            display: grid;
+            grid-template-areas:
+                ". up ."
+                "left center right"
+                ". down .";
+            gap: 10px;
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        #arrowUp { grid-area: up; }
+        #arrowDown { grid-area: down; }
+        #arrowLeft { grid-area: left; }
+        #arrowRight { grid-area: right; }
+        #arrows span {
+            font-size: 24px;
+            color: white;
+            opacity: 0.3;
+            transition: opacity 0.2s;
+        }
+    </style>
 </head>
 <body>
 <script type="module" src="./main.js"></script>
+<div id="arrows">
+    <span id="arrowUp">▲</span>
+    <span id="arrowLeft">◄</span>
+    <span id="arrowRight">►</span>
+    <span id="arrowDown">▼</span>
+  </div>
 </body>
 </html>

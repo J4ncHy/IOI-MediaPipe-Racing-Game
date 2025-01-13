@@ -5,7 +5,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 class CarSimulation {
     constructor(container) {
+        this.initialFaceSize = null;
         // Setup Three.js
+        
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         this.renderer = new THREE.WebGLRenderer();
@@ -23,74 +25,43 @@ class CarSimulation {
         this.world = new CANNON.World();
         this.world.gravity.set(0, -9.82, 0);
 
-       // Add ground plane to Cannon.js
-       const groundShape = new CANNON.Plane();
-       const groundBody = new CANNON.Body({ mass: 0 });
-       groundBody.addShape(groundShape);
-       groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-       this.world.addBody(groundBody);
+        // Add ground plane to Cannon.js
+        const groundShape = new CANNON.Plane();
+        const groundBody = new CANNON.Body({ mass: 0 });
+        groundBody.addShape(groundShape);
+        groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+        this.world.addBody(groundBody); 
+        // Add ground plane to Three.js
+        const textureLoader = new THREE.TextureLoader();
+        const groundTexture = textureLoader.load();
+        groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+        groundTexture.repeat.set(50, 50);   
+        // const groundGeometry = new THREE.PlaneGeometry(500, 500);
+        // const groundMaterial = new THREE.MeshStandardMaterial({ map: groundTexture });
+        // const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
+        // groundMesh.rotation.x = -Math.PI / 2;
+        // groundMesh.receiveShadow = true;
+        // this.scene.add(groundMesh);
 
-       // Add ground plane to Three.js
-       const textureLoader = new THREE.TextureLoader();
-       const groundTexture = textureLoader.load();
-       groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
-       groundTexture.repeat.set(50, 50);
+        // Load and integrate race track
+        this._loadRaceTrack('./assets/race-track/track.glb');
 
-       // const groundGeometry = new THREE.PlaneGeometry(500, 500);
-       // const groundMaterial = new THREE.MeshStandardMaterial({ map: groundTexture });
-       // const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
-       // groundMesh.rotation.x = -Math.PI / 2;
-       // groundMesh.receiveShadow = true;
-       // this.scene.add(groundMesh);
-
-       // Load and integrate race track
-       this._loadRaceTrack('./assets/race-track/track.glb');
-
-       const carLoader = new GLTFLoader();
-       carLoader.load('./assets/low_poly_car.glb', (gltf) => {
-           const carModel = gltf.scene;
-           carModel.scale.set(1, 1, 1); // Adjust the scale if necessary
-           carModel.position.set(0, 0, 0); // Adjust the position if necessary
-           this.scene.add(carModel);
-       
-           // Optionally, add physics to the car model
-           // this._addCarPhysics(carModel);
-       });
+        const carLoader = new GLTFLoader();
+        carLoader.load('./assets/low_poly_car.glb', (gltf) => {
+            this.carModel = gltf.scene;
+            this.carModel.position.set(0, 0, 0);
+            this.carModel.scale.set(1.8, 1.8, 1.8);
+            this.scene.add(this.carModel);
+        });
 
         // Add skybox
-        const skyboxLoader = new THREE.CubeTextureLoader();
-        const skyboxTexture = skyboxLoader.load([
-            'assets/skybox/px.jpg', 'assets/skybox/nx.jpg',
-            'assets/skybox/py.jpg', 'assets/skybox/ny.jpg',
-            'assets/skybox/pz.jpg', 'assets/skybox/nz.jpg'
-        ]);
+        const skyboxTexture = textureLoader.load('assets/skybox.jpg', () => {
+            const rt = new THREE.WebGLCubeRenderTarget(skyboxTexture.image.height);
+            rt.fromEquirectangularTexture(this.renderer, skyboxTexture);
+            this.scene.background = rt.texture;
+        });
         this.scene.background = skyboxTexture;
 
-        // Store cones for later use
-        // this.cones = [];
- 
-        // // Create cones and add them to the scene and physics world
-        // const coneGeometry = new THREE.ConeGeometry(0.5, 2, 32);
-        // const coneMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-
-        // for (let i = 0; i < 12; i++) {
-        //     // Three.js mesh
-        //     const coneMesh = new THREE.Mesh(coneGeometry, coneMaterial);
-        //     coneMesh.position.set(0, 1, -20 +(i * -20)); // Adjust positions as needed
-        //     this.scene.add(coneMesh);
-        // 
-        //     // Cannon.js body (approximated with a cylinder)
-        //     const coneShape = new CANNON.Cylinder(0.5, 0.5, 2, 32);
-        //     const coneBody = new CANNON.Body({ mass: 0 }); // Static body
-        //     coneBody.addShape(coneShape);
-        //     coneBody.position.set(coneMesh.position.x, coneMesh.position.y, coneMesh.position.z);
-        //     this.world.addBody(coneBody);
-        // 
-        //     // Store mesh and body
-        //     this.cones.push({ mesh: coneMesh, body: coneBody });
-        // }
-
-        // Create car
         this._createCar();
 
         // Setup controls
@@ -102,7 +73,7 @@ class CarSimulation {
             brake: false,
         };
 
-        this._addEventListeners();
+        // this._addEventListeners();
 
         // Create HUD
         this.speedometer = document.createElement('div');
@@ -225,11 +196,11 @@ class CarSimulation {
 
         // Three.js wheels
         const wheelGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.4, 32);
-        const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        wheelGeometry.rotateZ(Math.PI / 2);
+        const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x222222,  });
         this.wheelMeshes = [];
         for (let i = 0; i < this.vehicle.wheelInfos.length; i++) {
             const wheelMesh = new THREE.Mesh(wheelGeometry, wheelMaterial);
-            wheelMesh.rotation.z = Math.PI / 2;
             this.scene.add(wheelMesh);
             this.wheelMeshes.push(wheelMesh);
         }
@@ -273,18 +244,29 @@ class CarSimulation {
         if (results.detections.length > 0) {
             const face = results.detections[0];
             const boundingBox = face.boundingBox;
-            const centerX = boundingBox.xCenter / this.videoElement.videoWidth;
-
+    
             this.facePosition = 5 * boundingBox.xCenter - 2.5;
-            // console.log(this.facePosition.width);
-
-            // Log the coordinates of the face detection
-            // console.log(`Face detected at: xCenter=${boundingBox.xCenter}, yCenter=${boundingBox.yCenter}`);
-
-            // Draw the bounding box
-            this.faceCamera.drawBoundingBox(boundingBox);
+    
+            const faceSize = boundingBox.width;
+            if (!this.initialFaceSize) {
+                this.initialFaceSize = faceSize;
+            }
+            const sizeDifference = (faceSize - this.initialFaceSize) / this.initialFaceSize;
+            this.currentSizeDifference = sizeDifference;
+            console.log(sizeDifference);
+            if (sizeDifference  > 0.2) {
+                this.controls.forward = true;
+                this.controls.backward = false;
+            } else if (sizeDifference < -0.2) {
+                this.controls.forward = false;
+                this.controls.backward = true;
+            } else {
+                this.controls.forward = false;
+                this.controls.backward = false;
+            }
         } else {
-            this.faceCamera.ctx.clearRect(0, 0, this.faceCamera.canvas.width, this.faceCamera.canvas.height);
+            this.controls.forward = false;
+            this.controls.backward = false;
         }
     }
 
@@ -292,29 +274,21 @@ class CarSimulation {
         const engineForce = 250;
         const maxSteering = 0.2;
         const brakeForce = 10;
-        const maxSpeed = 15;
-
+        const maxSpeed = 20;
+        
+        const absDiff = Math.abs(this.currentSizeDifference || 0);
+        
         if (this.controls.forward) {
-            this.vehicle.applyEngineForce(engineForce, 2);
-            this.vehicle.applyEngineForce(engineForce, 3);
+            const currentForce = engineForce * absDiff;
+            this.vehicle.applyEngineForce(currentForce, 2);
+            this.vehicle.applyEngineForce(currentForce, 3);
         } else if (this.controls.backward) {
-            this.vehicle.applyEngineForce(-engineForce, 2);
-            this.vehicle.applyEngineForce(-engineForce, 3);
+            const currentForce = engineForce * absDiff;
+            this.vehicle.applyEngineForce(-currentForce, 2);
+            this.vehicle.applyEngineForce(-currentForce, 3);
         } else {
             this.vehicle.applyEngineForce(0, 2);
             this.vehicle.applyEngineForce(0, 3);
-        }
-
-        if (this.controls.brake) {
-            this.vehicle.setBrake(brakeForce, 0);
-            this.vehicle.setBrake(brakeForce, 1);
-            this.vehicle.setBrake(brakeForce, 2);
-            this.vehicle.setBrake(brakeForce, 3);
-        } else {
-            this.vehicle.setBrake(0, 0);
-            this.vehicle.setBrake(0, 1);
-            this.vehicle.setBrake(0, 2);
-            this.vehicle.setBrake(0, 3);
         }
 
         // Use face position to steer the car
@@ -330,6 +304,14 @@ class CarSimulation {
         if (this.chassisMesh) {
             this.chassisMesh.position.copy(this.vehicle.chassisBody.position);
             this.chassisMesh.quaternion.copy(this.vehicle.chassisBody.quaternion);
+        }
+
+        if (this.chassisMesh && this.carModel) {
+            // Update the GLB model position and rotation to match the physics chassis
+            this.carModel.position.copy(this.vehicle.chassisBody.position).add(new THREE.Vector3(-0.1, -0.7, 0));
+            this.carModel.quaternion.copy(this.vehicle.chassisBody.quaternion);
+
+            this.chassisMesh.visible = false;
         }
 
         // Update wheel positions
@@ -354,6 +336,13 @@ class CarSimulation {
         this.updateCamera();
 
         this.renderer.render(this.scene, this.camera);
+        document.getElementById("arrowUp").style.opacity = this.controls.forward ? "1" : "0.3";
+        document.getElementById("arrowDown").style.opacity = this.controls.backward ? "1" : "0.3";
+
+        // Show left/right steering based on facePosition
+        const steerThreshold = 0.05;
+        document.getElementById("arrowRight").style.opacity  = (this.facePosition < -steerThreshold) ? "1" : "0.3";
+        document.getElementById("arrowLeft").style.opacity = (this.facePosition > steerThreshold)  ? "1" : "0.3";
     }
 
     updateCamera() {
