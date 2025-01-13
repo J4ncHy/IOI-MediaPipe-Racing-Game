@@ -1,0 +1,11 @@
+Model Information:
+* title:	Racetrack test
+* source:	https://sketchfab.com/3d-models/racetrack-test-84dcb1777aa547f5b7e5393b72a0956f
+* author:	MaG80 (https://sketchfab.com/MaG80)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Racetrack test" (https://sketchfab.com/3d-models/racetrack-test-84dcb1777aa547f5b7e5393b72a0956f) by MaG80 (https://sketchfab.com/MaG80) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

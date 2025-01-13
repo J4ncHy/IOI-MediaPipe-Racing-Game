@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { FaceCamera } from './camera.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 class CarSimulation {
     constructor(container) {
@@ -22,25 +23,39 @@ class CarSimulation {
         this.world = new CANNON.World();
         this.world.gravity.set(0, -9.82, 0);
 
-        // Create larger ground plane
-        const groundShape = new CANNON.Plane();
-        const groundBody = new CANNON.Body({ mass: 0 });
-        groundBody.addShape(groundShape);
-        groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-        this.world.addBody(groundBody);
+       // Add ground plane to Cannon.js
+       const groundShape = new CANNON.Plane();
+       const groundBody = new CANNON.Body({ mass: 0 });
+       groundBody.addShape(groundShape);
+       groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+       this.world.addBody(groundBody);
 
-        // Load texture
-        const textureLoader = new THREE.TextureLoader();
-        const groundTexture = textureLoader.load('assets/checkered-texture.pnga');
-        groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
-        groundTexture.repeat.set(50, 50);
+       // Add ground plane to Three.js
+       const textureLoader = new THREE.TextureLoader();
+       const groundTexture = textureLoader.load();
+       groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+       groundTexture.repeat.set(50, 50);
 
-        // Three.js larger ground
-        const groundGeometry = new THREE.PlaneGeometry(500, 500);
-        const groundMaterial = new THREE.MeshStandardMaterial({ map: groundTexture });
-        const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
-        groundMesh.rotation.x = -Math.PI / 2;
-        this.scene.add(groundMesh);
+       // const groundGeometry = new THREE.PlaneGeometry(500, 500);
+       // const groundMaterial = new THREE.MeshStandardMaterial({ map: groundTexture });
+       // const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
+       // groundMesh.rotation.x = -Math.PI / 2;
+       // groundMesh.receiveShadow = true;
+       // this.scene.add(groundMesh);
+
+       // Load and integrate race track
+       this._loadRaceTrack('./assets/race-track/track.glb');
+
+       const carLoader = new GLTFLoader();
+       carLoader.load('./assets/low_poly_car.glb', (gltf) => {
+           const carModel = gltf.scene;
+           carModel.scale.set(1, 1, 1); // Adjust the scale if necessary
+           carModel.position.set(0, 0, 0); // Adjust the position if necessary
+           this.scene.add(carModel);
+       
+           // Optionally, add physics to the car model
+           // this._addCarPhysics(carModel);
+       });
 
         // Add skybox
         const skyboxLoader = new THREE.CubeTextureLoader();
@@ -52,28 +67,28 @@ class CarSimulation {
         this.scene.background = skyboxTexture;
 
         // Store cones for later use
-        this.cones = [];
+        // this.cones = [];
+ 
+        // // Create cones and add them to the scene and physics world
+        // const coneGeometry = new THREE.ConeGeometry(0.5, 2, 32);
+        // const coneMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
 
-        // Create cones and add them to the scene and physics world
-        const coneGeometry = new THREE.ConeGeometry(0.5, 2, 32);
-        const coneMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-
-        for (let i = 0; i < 12; i++) {
-            // Three.js mesh
-            const coneMesh = new THREE.Mesh(coneGeometry, coneMaterial);
-            coneMesh.position.set(0, 1, -20 +(i * -20)); // Adjust positions as needed
-            this.scene.add(coneMesh);
-        
-            // Cannon.js body (approximated with a cylinder)
-            const coneShape = new CANNON.Cylinder(0.5, 0.5, 2, 32);
-            const coneBody = new CANNON.Body({ mass: 0 }); // Static body
-            coneBody.addShape(coneShape);
-            coneBody.position.set(coneMesh.position.x, coneMesh.position.y, coneMesh.position.z);
-            this.world.addBody(coneBody);
-        
-            // Store mesh and body
-            this.cones.push({ mesh: coneMesh, body: coneBody });
-        }
+        // for (let i = 0; i < 12; i++) {
+        //     // Three.js mesh
+        //     const coneMesh = new THREE.Mesh(coneGeometry, coneMaterial);
+        //     coneMesh.position.set(0, 1, -20 +(i * -20)); // Adjust positions as needed
+        //     this.scene.add(coneMesh);
+        // 
+        //     // Cannon.js body (approximated with a cylinder)
+        //     const coneShape = new CANNON.Cylinder(0.5, 0.5, 2, 32);
+        //     const coneBody = new CANNON.Body({ mass: 0 }); // Static body
+        //     coneBody.addShape(coneShape);
+        //     coneBody.position.set(coneMesh.position.x, coneMesh.position.y, coneMesh.position.z);
+        //     this.world.addBody(coneBody);
+        // 
+        //     // Store mesh and body
+        //     this.cones.push({ mesh: coneMesh, body: coneBody });
+        // }
 
         // Create car
         this._createCar();
@@ -118,6 +133,41 @@ class CarSimulation {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    _loadRaceTrack(url) {
+        const loader = new GLTFLoader();
+
+        const createTrimesh = (geometry) => {
+            const vertices = geometry.attributes.position.array;
+            const indices = geometry.index ? geometry.index.array : undefined;
+            return new CANNON.Trimesh(vertices, indices);
+        };
+
+        loader.load(url, (gltf) => {
+            const raceTrack = gltf.scene;
+
+            raceTrack.traverse((child) => {
+                if (child.isMesh) {
+                    // Enable shadows
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+
+                    // Create Trimesh for Cannon.js physics
+                    const cannonShape = createTrimesh(child.geometry);
+                    const body = new CANNON.Body({ mass: 0 }); // Static body
+                    body.addShape(cannonShape);
+                    body.position.copy(child.position);
+                    body.quaternion.copy(child.quaternion);
+
+                    this.world.addBody(body);
+                }
+            });
+
+            this.scene.add(raceTrack);
+        }, undefined, (error) => {
+            console.error('Error loading race track:', error);
+        });
     }
 
     _createCar() {
@@ -226,9 +276,10 @@ class CarSimulation {
             const centerX = boundingBox.xCenter / this.videoElement.videoWidth;
 
             this.facePosition = 5 * boundingBox.xCenter - 2.5;
+            // console.log(this.facePosition.width);
 
             // Log the coordinates of the face detection
-            console.log(`Face detected at: xCenter=${boundingBox.xCenter}, yCenter=${boundingBox.yCenter}`);
+            // console.log(`Face detected at: xCenter=${boundingBox.xCenter}, yCenter=${boundingBox.yCenter}`);
 
             // Draw the bounding box
             this.faceCamera.drawBoundingBox(boundingBox);
@@ -267,7 +318,7 @@ class CarSimulation {
         }
 
         // Use face position to steer the car
-        console.log(this.facePosition);
+        // console.log(this.facePosition);
         if (this.facePosition !== undefined) {
             this.vehicle.setSteeringValue(this.facePosition * maxSteering, 0);
             this.vehicle.setSteeringValue(this.facePosition * maxSteering, 1);
